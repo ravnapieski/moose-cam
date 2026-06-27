@@ -1,7 +1,7 @@
 # Moose Cam
 
-![PICT1454](examples/PICT1454.jpg)
-> *"Perkeleenmoinen sarvipää nuolukivellä. Siinä se nylkyttää, joutas pian jo syksyn verotukseen."* - Moose Cam
+![PICT1564](examples/PICT1564.jpg)
+> *"Perkele, komia hirvisonni ja lehmä siinä nuolukivellä, syksyn jahteja odotellessa!"* - Moose Cam
 
 Automated moose detection from a Burrel trail camera in Utsjoki, northern Lapland. When the camera captures a photo with a moose, a message is sent to a Telegram group chat with the image and an AI-generated description in the voice of a Finnish moose hunter.
 
@@ -74,9 +74,6 @@ Before building the pipeline, models were tested locally with 954 SD card images
 
 Real responses from Gemini 3.1 Flash Lite ("hunter voice" prompt):
 
-**PICT1454** - `hirvi: true, luottamus: 1.0` - "Perkeleenmoinen sarvipää nuolukivellä. Siinä se nylkyttää, joutas pian jo syksyn verotukseen."
-![PICT1454](examples/PICT1454.jpg)
-
 **PICT1697** - `hirvi: true, luottamus: 1.0` - "Perkele, onhan se köriläs! Kunnon hirvi tallustelee tuossa kameran edessä, saatana."
 ![PICT1697](examples/PICT1697.jpg)
 
@@ -148,6 +145,7 @@ Required GitHub repository secrets:
 - **Model:** Burrel N24
 - **Location:** Utsjoki, Sápmi
 - **Settings:** Motion trigger, instant send, 10MP, normal sensitivity, 3 min interval (min)
+- **API docs:** https://app.burrelcameras.com/api/v1/public/info/
 
 ## Future ideas
 
