@@ -2,6 +2,10 @@ name = "moose-cam"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 # Secrets (set with: npx wrangler secret put <NAME>)
 # WEBHOOK_SECRET
 # BURREL_ACCESS_KEY
