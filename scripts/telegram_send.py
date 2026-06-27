@@ -1,3 +1,7 @@
+"""Telegram-viestien lähetys CLI-työkaluna.
+Ajo: python scripts/telegram_send.py "viesti" tai --photo kuva.jpg "kuvateksti"
+"""
+
 import os
 import sys
 from pathlib import Path

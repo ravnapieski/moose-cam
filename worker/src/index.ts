@@ -1,3 +1,8 @@
+/**
+ * Cloudflare Worker: Burrel webhook → Gemini vision classification → Telegram alert.
+ * Responds to Burrel within 5s, processes images in the background via ctx.waitUntil().
+ */
+
 interface Env {
 	WEBHOOK_SECRET: string;
 	BURREL_ACCESS_KEY: string;

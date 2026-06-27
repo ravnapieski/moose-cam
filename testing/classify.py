@@ -1,3 +1,8 @@
+"""20 kuvan hirvitunnistustesti Groq/Llama 4 Scout -mallilla.
+Vertaa tuloksia 20_test_pic_names.txt-labeleihin ja laskee accuracy/precision/recall.
+Ajo: python testing/classify.py
+"""
+
 import base64
 import json
 import sys

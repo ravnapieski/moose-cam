@@ -1,11 +1,14 @@
 # DEPRECATED: Käyttää Groq + vanhaa promptia.
 # Tuotantopipeline: worker/src/index.ts
+"""Hakee kuvat Burrel API:sta ja luokittelee ne Groq/Llama 4 Scout -mallilla.
+Tallentaa kuvat ja tulokset paikallisesti. Tukee inkrementaalista hakua.
+Ajo: python testing/burrel_classify.py
+"""
 
 import base64
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests

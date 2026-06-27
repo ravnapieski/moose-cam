@@ -1,3 +1,8 @@
+"""A/B-testi: 2 mallia (Groq, Gemini) x 2 promptia x 477 kuvaa.
+Resume-safe — jatkaa siitä mihin jäi. Vertailee mallien yksimielisyyttä.
+Ajo: python testing/ab_test.py (tai --gemini detailed)
+"""
+
 import base64
 import json
 import os
