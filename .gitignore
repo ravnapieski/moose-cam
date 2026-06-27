@@ -1,0 +1,13 @@
+.env
+.dev.vars
+node_modules/
+
+# Test images and results
+riistakamera_kuvat/
+20_test/
+tulokset/
+
+# Archives
+*.zip
+
+docs/

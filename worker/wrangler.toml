@@ -1,0 +1,10 @@
+name = "moose-cam"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Secrets (set with: npx wrangler secret put <NAME>)
+# WEBHOOK_SECRET
+# BURREL_ACCESS_KEY
+# GEMINI_API_KEY
+# TELEGRAM_BOT_TOKEN
+# TELEGRAM_CHAT_ID
