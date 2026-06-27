@@ -1,113 +1,120 @@
-# Moose Cam — Riistakameran hirvitunnistus
+# Moose Cam
 
-Riistakamerakuvien automaattinen hirvitunnistus ja -hälytys vision-kielimalleilla (zero-shot, ei fine-tuningia).
+Automated moose detection from a [Burrel](https://www.burrelcameras.com/) trail camera in Utsjoki, northern Lapland. When the camera captures a photo with a moose, a Telegram alert is sent with the image and an AI-generated description — written in the voice of a Finnish moose hunter.
 
-## Arkkitehtuuri
+Uses vision language models (zero-shot, no fine-tuning) for classification. Tested with 477 trail camera images at 100% agreement between models.
+
+## How it works
 
 ```
-Burrel-kamera (Utsjoki)
-  → kuva liiketunnistimella
+Burrel camera (Utsjoki)
+  → motion trigger → photo
     → Burrel backend
-      → Webhook POST → Cloudflare Worker (TypeScript)
-        → ctx.waitUntil(): kuittaa Burrelille heti (<5s)
-          → Gemini API analysoi kuvan taustalla
-            → Jos hirvi → Telegram-viesti kuvalla + kuvauksella
+      → Webhook POST → Cloudflare Worker
+        → responds 200 OK immediately (<5s)
+        → ctx.waitUntil() background:
+          → fetch image from Burrel API
+          → Gemini classifies: moose or not?
+          → if moose → Telegram alert with photo + description
 ```
 
-### Tekniset päätökset
+## Architecture decisions
 
-| Komponentti | Valinta | Miksi |
+| Component | Choice | Why |
 |---|---|---|
-| **Trigger** | Burrel webhook | Reaaliaikainen push, ei turhaa pollausta |
-| **Backend** | Cloudflare Workers (TS) | `ctx.waitUntil()` ratkaisee Burrelin 5s timeout, nolla cold start, 100K req/pv ilmaiseksi |
-| **AI/Vision** | Google Gemini API | Nopea, hyvä suomen kieli, edullinen, API-avain valmiina |
-| **Ilmoitukset** | Telegram Bot | Ilmainen API, tukee kuvia + tekstiä, fetch()-yhteensopiva |
+| **Trigger** | Burrel webhook | Real-time push, no polling |
+| **Backend** | Cloudflare Workers (TS) | `ctx.waitUntil()` solves Burrel's 5s timeout, zero cold start, 100K req/day free |
+| **AI/Vision** | Google Gemini 3.1 Flash Lite | Fast, good Finnish, cheap, JSON mode built in |
+| **Alerts** | Telegram Bot | Free API, supports photos + text, works with fetch() |
 
-### Miksi Cloudflare Workers (eikä GCP/Azure Functions)?
+**Why Cloudflare Workers over GCP/Azure Functions?** Burrel's webhook requires a response within 5 seconds, but Gemini analysis takes 3–6s. Workers responds immediately and runs the analysis in the background with `ctx.waitUntil()`. On GCP this would require Pub/Sub + two separate functions.
 
-1. **`ctx.waitUntil()`** — Burrelin webhook vaatii <5s kuittauksen, mutta Gemini-analyysi kestää 3–6s. Workers kuittaa heti ja ajaa analyysin taustalla. GCP:ssä tarvittaisiin Pub/Sub + 2 funktiota.
-2. **Nolla cold start** — V8-isolaatit, ei herätysviivettä vaikka kamera olisi hiljaa päiviä.
-3. **Yksinkertainen koodi** — koko pipeline mahtuu yhteen tiedostoon, pelkkiä fetch()-kutsuja.
-4. **Ilmainen ja huoltovapaa** — 100K req/päivä, ei palvelimia päivitettäväksi.
-
-## Kansiorakenne
+## Project structure
 
 ```
 moose_cam/
-├── worker/                       # Cloudflare Worker (TypeScript) — TODO
+├── worker/                       # Cloudflare Worker (TypeScript)
 │   ├── src/index.ts
 │   ├── wrangler.toml
 │   └── package.json
-├── testing/                      # Python-testiskriptit (mallin evaluointi)
-│   ├── classify.py
-│   ├── ab_test.py
-│   ├── burrel_classify.py
+├── testing/                      # Python test scripts (model evaluation)
+│   ├── classify.py               # 20-image test with labels
+│   ├── ab_test.py                # A/B: 2 models × 2 prompts × 477 images
+│   ├── burrel_classify.py        # Burrel API fetch + classify (deprecated)
+│   ├── test_worker_local.py      # E2E test for local/prod Worker
 │   └── copy_test_images.py
-├── scripts/                      # Apuskriptit
-│   └── telegram_send.py
-├── docs/                         # Dokumentaatio
-│   ├── openapi.json
+├── scripts/
+│   └── telegram_send.py          # CLI: send Telegram messages/photos
+├── docs/
+│   ├── openapi.json              # Burrel API spec
 │   └── burrel_tiketti.md
+├── .github/workflows/deploy.yml  # Auto-deploy on push
 ├── .env.example
 └── .gitignore
 ```
 
-## Kamera
+## Setup
 
-- **Malli:** Burrel N24
-- **Sijainti:** Utsjoki, Pohjois-Lappi
-- **Asetukset:** Liiketunnistin, instant send, 10M kuva, normaali herkkyys
-- **Kuvia SD-kortilla:** 954 kpl (päivä + yö/IR)
-- **Burrel API:** Toimii (autentikaatio OK 2026-06-27), 7 päivän säilytys
+### Worker (production pipeline)
 
-## Mallin testaus (Python)
+```bash
+cd worker
+npm install
+cp .dev.vars.example .dev.vars    # fill in secrets
+npx wrangler dev                  # local dev server
+npx wrangler deploy               # deploy to Cloudflare
+```
 
-Ennen pipeline-toteutusta mallit testattiin paikallisesti Pythonilla SD-kortin kuvilla.
+Secrets (set with `npx wrangler secret put <NAME>`):
+- `WEBHOOK_SECRET` — shared secret in the webhook URL query string
+- `BURREL_ACCESS_KEY` — Burrel camera access key
+- `GEMINI_API_KEY` — Google AI API key
+- `TELEGRAM_BOT_TOKEN` — Telegram bot token
+- `TELEGRAM_CHAT_ID` — target Telegram chat/group ID
 
-### Setup (testiskriptit)
+### Test scripts (Python)
 
 ```bash
 pip install groq google-genai python-dotenv requests
-cp .env.example .env  # täytä oikeat avaimet
+cp .env.example .env              # fill in keys
 ```
 
-### Skriptit
+## Auto-deploy
 
-| Skripti | Tarkoitus |
-|---|---|
-| `testing/classify.py` | 20 kuvan testi, evaluointi oikeita vastauksia vasten |
-| `testing/ab_test.py` | Laaja A/B-testi: 2 mallia × 2 promptia × 477 kuvaa |
-| `testing/burrel_classify.py` | Burrel API → hae kuvat → luokittele |
-| `testing/copy_test_images.py` | Kopioi testikuvat `riistakamera_kuvat/` → `20_test/` |
-| `scripts/telegram_send.py` | CLI: `python scripts/telegram_send.py "viesti"` |
+Pushing to `main` with changes in `worker/` triggers a GitHub Actions workflow:
 
-### Testatut mallit
+1. `npm ci` — install dependencies
+2. `tsc --noEmit` — type check (deploy blocked if this fails)
+3. `wrangler deploy` — deploy to Cloudflare
 
-| Malli | API | Hinta | JSON-pakotus | Suomen kieli |
+Required GitHub repository secrets:
+- `CLOUDFLARE_API_TOKEN` — API token with "Workers Scripts: Edit" permission
+- `CLOUDFLARE_ACCOUNT_ID` — from Cloudflare dashboard → Workers & Pages
+
+## Model testing
+
+Before building the pipeline, models were tested locally with 954 SD card images.
+
+| Model | API | JSON mode | Finnish | Status |
 |---|---|---|---|---|
-| Llama 4 Scout 17B | Groq | 0 € | `response_format` | Heikko |
-| Gemini 3.1 Flash Lite | Google AI | 0 € | `response_mime_type` | Hyvä |
+| Llama 4 Scout 17B | Groq | `response_format` | Weak | Removed from Groq 17.6.2026 |
+| Gemini 3.1 Flash Lite | Google AI | `response_mime_type` | Good | **In production** |
 
-**Huom:** Llama 4 Scout poistettiin Groqista 17.6.2026.
+**20-image test:** 100% accuracy, precision, and recall (20/20).
 
-### Tulokset
+**A/B test (477 images):** 17 comparable images → 100% agreement between models.
 
-**20 kuvan testi (V4-prompti):** 100% accuracy, precision ja recall (20/20).
+### Prompt engineering lessons
 
-**A/B-testi (477 kuvaa):** Gemini detailed valmis, Groq kesken (TPD-rajoitus). 17 yhteistä testikuvaa → 100% yksimielisyys mallien välillä.
+- Adding reindeer instructions **degraded** results (100% → 80%) — the model started classifying moose as reindeer
+- Simple prompt + "large cervid = probably moose" works best
+- Confidence scores are unreliable
+- "Hunter voice" produces entertaining descriptions
 
-### Prompt engineering -opit
+## Camera
 
-- Poro-ohjeen lisääminen **heikensi** tuloksia (100% → 80%) — malli luokitteli hirviä poroiksi
-- Yksinkertainen prompti + "iso hirvieläin = todennäköisesti hirvi" toimii parhaiten
-- Luottamusarvot eivät ole luotettavia
-- "Metsästäjä-ääni" tuottaa viihdyttäviä kuvauksia
-
-## Burrel Public API
-
-- **Base URL:** `https://app.burrelcameras.com/api/v1/public`
-- **Docs:** `https://app.burrelcameras.com/api/v1/public/info/`
-- **Auth:** `POST /auth` + accessKey → 1h token
-- **Webhook:** `PUT /webhook` — 5s timeout, auto-deregister after 5 failures
-- **Säilytys:** 7 päivää (app), 1 vuosi (Pro)
+- **Model:** Burrel N24
+- **Location:** Utsjoki, northern Lapland
+- **Settings:** Motion trigger, instant send, 10MP, normal sensitivity
+- **Burrel API:** 7-day retention (app), 1 year (Pro)
 - **OpenAPI spec:** `docs/openapi.json`
