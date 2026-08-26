@@ -38,12 +38,11 @@ Burrel camera (Utsjoki)
 moose_cam/
 ├── worker/                       # Cloudflare Worker (TypeScript)
 │   ├── src/index.ts
+│   ├── test/index.test.ts
 │   ├── wrangler.toml
 │   └── package.json
 ├── testing/                      # Python test scripts (model evaluation)
-│   ├── classify.py               # 20-image test with labels
-│   ├── ab_test.py                # A/B: 2 models × 2 prompts × 477 images
-│   ├── burrel_classify.py        # Burrel API fetch + classify (deprecated)
+│   ├── role_preview.py           # Preview caption roles against Gemini
 │   ├── test_worker_local.py      # E2E test for local/prod Worker
 │   └── copy_test_images.py
 ├── scripts/
@@ -72,7 +71,7 @@ Before building the pipeline, models were tested locally with 954 SD card images
 
 ### Example outputs
 
-Real responses from Gemini 3.1 Flash Lite ("hunter voice" prompt):
+Real responses from Gemini 3.1 Flash Lite (the "hunter" role):
 
 **PICT1697** - `hirvi: true, luottamus: 1.0` - "Perkele, onhan se köriläs! Kunnon hirvi tallustelee tuossa kameran edessä, saatana."
 ![PICT1697](examples/PICT1697.jpg)
@@ -98,8 +97,8 @@ Some findings from four prompt iterations:
 - **Don't mention what you're not looking for.** Adding "this is not a reindeer" tanked recall from 100% to 60% across three attempts (on a 20 pic test set, with 10 containing moose). The model got spooked and started calling moose reindeer. Fix: remove all poro mentions, add "large cervid = probably moose" instead. 100% accuracy restored.
 - **Location as implicit context.** Saying "Utsjoki, northern Lapland" in the prompt gives the model geographic awareness. It knows reindeer exist there without being told to watch for them. No explicit reindeer instructions needed, and no regressions.
 - **Confidence scores are surprisingly useful.** Gemini gives 1.0 for clear moose shots and clear empty frames, but drops to 0.8 for ambiguous cases like a reindeer in winter (PICT2890). Good for flagging edge cases worth reviewing.
-- **Persona doesn't mess with accuracy.** "Write like an experienced moose hunter with a rich vocabulary" produces some  funny descriptions at times and doesn't hurt classification at all.
-- **Temperature at 1.0 is fine.** Could lower it to 0.3-0.5 for more consistent outputs, but classification is already correct and the variety in descriptions is nice.
+- **Persona drives the voice, not the verdict.** The prompt rotates several roles (hunter, animal-rights advocate, Sámi shaman, reindeer herder, deadpan documentary host) for variety, and explicitly instructs the model that the role must not influence the moose/animal classification.
+- **Temperature at 1.2.** Runs a bit hot to give the descriptions more range across roles. Could lower it to 0.3-0.5 for more consistent phrasing, but the variety is the point.
 - **JSON output works.** Gemini's `response_mime_type: "application/json"` returns clean JSON every time. No regex, no markdown stripping.
 
 ## Setup
@@ -124,7 +123,7 @@ Secrets (set with `npx wrangler secret put <NAME>`):
 ### Test scripts (Python)
 
 ```bash
-pip install groq google-genai python-dotenv requests
+pip install python-dotenv requests
 cp .env.example .env              # fill in keys
 ```
 
