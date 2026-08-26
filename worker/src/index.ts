@@ -35,21 +35,29 @@ const BURREL_API = "https://app.burrelcameras.com/api/v1/public";
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const GEMINI_MAX_TOKENS = 150;
+const MULTIPART_BOUNDARY = "----MooseCamBoundary";
 
 const PROMPT = `Riistakamerakuva Utsjoelta, Pohjois-Lapista. Onko kuvassa hirvi (Alces alces, moose)?
 
-Hirvi on suuri, tumma hirvieläin jolla on pitkät jalat, kyttyräselkä ja leveä kuono. \
-Jos kuvassa on iso hirvieläin, se on todennäköisesti hirvi. \
+Hirvi on suuri, tumma hirvieläin jolla on pitkät jalat, kyttyräselkä ja leveä kuono.
+Jos kuvassa on iso hirvieläin, se on todennäköisesti hirvi.
 Jos kuvassa on eläin mutta et ole varma lajista, merkitse elain_kuvassa: true.
 
-Kirjoita kuvaus kuin kokenut hirvenmetsästäjä. Suorapuheisesti, \
-kiroillen ja rikkaalla kielellä.
+Arvioi ensin objektiivisesti onko kuvassa hirvi tai muu eläin. Kirjoita vasta sitten lyhyt, napakka kuvaus kuvasta annetussa roolissa — rooli ei saa vaikuttaa hirvi- tai elain_kuvassa-arvioon.
+Tartu juuri tämän kuvan yksityiskohtiin.
 
 Vastaa JSON:
-{"hirvi": true/false, "elain_kuvassa": true/false, \
-"luottamus": 0.0-1.0, "kuvaus": "metsästäjän kommentti, max 15 sanaa"}
+{"hirvi": true/false, "elain_kuvassa": true/false, "luottamus": 0.0-1.0, "kuvaus": "kuvaus, max 20 sanaa"}
 
 luottamus = kuinka varma olet omasta vastauksestasi.`;
+
+const CAPTION_ROLES = [
+	"Kokenut hirvenmetsästäjä. Puhu suorasukaisesti, kiroillen ja karskilla, rikkaalla kielellä.",
+	"Intohimoinen eläinoikeusaktivisti. Kanna huolta eläimen hyvinvoinnista ja moralisoi hienovaraisesti ihmisen tunkeutumista erämaahan.",
+	"Saamelainen noaidi. Puhu arvoituksellisesti luonnonhengistä ja enteistä, tunturia ja sen eläimiä kunnioittaen.",
+	"Saamelainen poromies. Tarkastele eläintä käytännönläheisesti sään, laidunten ja tokan kannalta, vähäeleisen tyynesti.",
+	"Kuivan asiallinen luontodokumentin juontaja. Selosta hetki vakavalla, tahattoman koomisella asiantuntijaotteella.",
+];
 
 async function getBurrelToken(accessKey: string): Promise<string> {
 	const resp = await fetch(`${BURREL_API}/auth`, {
@@ -74,7 +82,7 @@ async function fetchImage(url: string, token: string): Promise<ArrayBuffer> {
 	return resp.arrayBuffer();
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
 	const bytes = new Uint8Array(buffer);
 	const CHUNK = 8192;
 	const chunks: string[] = [];
@@ -90,6 +98,10 @@ async function classifyWithGemini(
 ): Promise<GeminiResult> {
 	const url = `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
+	const role =
+		CAPTION_ROLES[Math.floor(Math.random() * CAPTION_ROLES.length)];
+	const prompt = `${PROMPT}\n\nRooli: ${role}`;
+
 	const resp = await fetch(url, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -103,13 +115,14 @@ async function classifyWithGemini(
 								data: imageBase64,
 							},
 						},
-						{ text: PROMPT },
+						{ text: prompt },
 					],
 				},
 			],
 			generationConfig: {
 				responseMimeType: "application/json",
 				maxOutputTokens: GEMINI_MAX_TOKENS,
+				temperature: 1.2,
 			},
 		}),
 	});
@@ -126,24 +139,21 @@ async function classifyWithGemini(
 	return JSON.parse(data.candidates[0].content.parts[0].text);
 }
 
-async function sendTelegramPhoto(
+export function buildMultipartBody(
 	imageBytes: ArrayBuffer,
 	caption: string,
-	botToken: string,
 	chatId: string,
-): Promise<void> {
-	const boundary = "----MooseCamBoundary";
-
+): Uint8Array {
 	const prefix =
-		`--${boundary}\r\n` +
+		`--${MULTIPART_BOUNDARY}\r\n` +
 		`Content-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n` +
-		`--${boundary}\r\n` +
+		`--${MULTIPART_BOUNDARY}\r\n` +
 		`Content-Disposition: form-data; name="caption"\r\n\r\n${caption}\r\n` +
-		`--${boundary}\r\n` +
+		`--${MULTIPART_BOUNDARY}\r\n` +
 		`Content-Disposition: form-data; name="photo"; filename="moose.jpg"\r\n` +
 		`Content-Type: image/jpeg\r\n\r\n`;
 
-	const suffix = `\r\n--${boundary}--\r\n`;
+	const suffix = `\r\n--${MULTIPART_BOUNDARY}--\r\n`;
 
 	const prefixBytes = new TextEncoder().encode(prefix);
 	const suffixBytes = new TextEncoder().encode(suffix);
@@ -156,14 +166,25 @@ async function sendTelegramPhoto(
 	body.set(photoBytes, prefixBytes.length);
 	body.set(suffixBytes, prefixBytes.length + photoBytes.length);
 
+	return body;
+}
+
+async function sendTelegramPhoto(
+	imageBytes: ArrayBuffer,
+	caption: string,
+	botToken: string,
+	chatId: string,
+): Promise<void> {
+	const body = buildMultipartBody(imageBytes, caption, chatId);
+
 	const resp = await fetch(
 		`https://api.telegram.org/bot${botToken}/sendPhoto`,
 		{
 			method: "POST",
 			headers: {
-				"Content-Type": `multipart/form-data; boundary=${boundary}`,
+				"Content-Type": `multipart/form-data; boundary=${MULTIPART_BOUNDARY}`,
 			},
-			body: body.buffer,
+			body,
 		},
 	);
 
