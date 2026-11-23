@@ -12,7 +12,7 @@ import json
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-TOKEN = os.getenv("TELEGRAM_BOT_API_KEY")
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 API = f"https://api.telegram.org/bot{TOKEN}"
 

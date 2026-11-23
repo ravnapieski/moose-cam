@@ -18,7 +18,7 @@ WORKER_PROD = "https://moose-cam.moose-cam.workers.dev"
 
 def get_burrel_media() -> dict:
     resp = requests.post(f"{BURREL_API}/auth", json={
-        "accessKey": os.getenv("BURREL_CAMERA_ACCESS_KEY"),
+        "accessKey": os.getenv("BURREL_ACCESS_KEY"),
     })
     resp.raise_for_status()
     token = resp.json()["token"]

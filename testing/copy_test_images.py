@@ -1,10 +1,10 @@
 import shutil
 from pathlib import Path
 
-BASE = Path(__file__).parent
-SOURCE_DIR = BASE / "riistakamera_kuvat"
-TARGET_DIR = BASE / "20_test"
-NAMES_FILE = BASE.parent / "20_test_pic_names.txt"
+PROJECT_ROOT = Path(__file__).parent.parent
+SOURCE_DIR = PROJECT_ROOT / "riistakamera_kuvat"
+TARGET_DIR = PROJECT_ROOT / "20_test"
+NAMES_FILE = Path(__file__).parent / "20_test_pic_names.txt"
 
 TARGET_DIR.mkdir(exist_ok=True)
 

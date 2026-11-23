@@ -48,9 +48,6 @@ moose_cam/
 ├── scripts/
 │   └── telegram_send.py          # CLI: send Telegram messages/photos
 ├── examples/                     # Sample images for README
-├── docs/
-│   ├── openapi.json              # Burrel API spec
-│   └── burrel_tiketti.md
 ├── .github/workflows/deploy.yml  # Auto-deploy on push
 ├── .env.example
 └── .gitignore
@@ -133,7 +130,8 @@ Pushing to `main` with changes in `worker/` triggers a GitHub Actions workflow:
 
 1. `npm ci` - install dependencies
 2. `tsc --noEmit` - type check (deploy blocked if this fails)
-3. `wrangler deploy` - deploy to Cloudflare
+3. `npm test` - unit tests with vitest (deploy blocked if this fails)
+4. `wrangler deploy` - deploy to Cloudflare
 
 Required GitHub repository secrets:
 - `CLOUDFLARE_API_TOKEN` - API token with "Workers Scripts: Edit" permission
