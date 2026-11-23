@@ -1,9 +1,8 @@
 # Moose Cam
 
-![PICT1564](examples/PICT1564.jpg)
-> *"Perkele, komia hirvisonni ja lehmä siinä nuolukivellä, syksyn jahteja odotellessa!"* - Moose Cam
+<img src="examples/telegram-example.jpg" alt="Telegram alert from Moose Cam" width="400">
 
-Automated moose detection from a Burrel trail camera in Utsjoki, northern Lapland. When the camera captures a photo with a moose, a message is sent to a Telegram group chat with the image and an AI-generated description in the voice of a Finnish moose hunter.
+Automated moose detection from a Burrel trail camera in northernmost Lapland. When the camera captures a photo with a moose, a message is sent to a Telegram group chat with the image and an AI-generated description.
 
 Uses Google Gemini 3.1 Flash Lite (free tier) for zero-shot classification. Tested with 477 trail camera images; manual check of about 50% showed 100% accuracy across moose, reindeer, hares, and empty frames.
 
@@ -70,8 +69,8 @@ Before building the pipeline, models were tested locally with 954 SD card images
 
 Real responses from Gemini 3.1 Flash Lite (the "hunter" role):
 
-**PICT1697** - `hirvi: true, luottamus: 1.0` - "Perkele, onhan se köriläs! Kunnon hirvi tallustelee tuossa kameran edessä, saatana."
-![PICT1697](examples/PICT1697.jpg)
+**PICT1564** - `hirvi: true, luottamus: 1.0` - "Perkele, komia hirvisonni ja lehmä siinä nuolukivellä, syksyn jahteja odotellessa!"
+![PICT1564](examples/PICT1564.jpg)
 
 **PICT1711** - `hirvi: true, luottamus: 1.0` - "Perkele, siinähän se hirven korva törröttää aivan linssin edessä, hitonmoinen romuluu."
 ![PICT1711](examples/PICT1711.jpg)
